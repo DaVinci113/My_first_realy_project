@@ -8,15 +8,58 @@ def get_con():
         cur = con.cursor()
 
         def get_buy():
+
+            def get_match(emitent):
+                cur.execute('SELECT emitent FROM portfolio')
+                res = cur.fetchall()
+                return any(emitent in x for x in res)
+
+            def get_pos_cost(emitent):  # Расчет pos_cost
+                cur.execute(f'SELECT cost FROM {emitent}')
+                cost = cur.fetchall()
+                result = 0
+                for _ in cost:
+                    result += int(_[0])
+                return result
+
+            def get_pos_quantity(emitent):  # Расчет pos_quantity
+                cur.execute(f'SELECT quantity FROM {emitent}')
+                quantity = cur.fetchall()
+                result = 0
+                for _ in quantity:
+                    result += int(_[0])
+                return result
+
+            def get_pos_price(emitent):
+                return 1000
+
+            def get_profit(emitent):
+                return get_pos_cost(emitent) - get_pos_price(emitent)
+
             emitent = input('Enter emitent: ')
-            ticker = input('Enter ticket: ')
+            ticker = input('Enter ticker: ')
             date = input('Enter date: ')
             price = int(input('Enter price: '))
             quantity = int(input('Enter quantity: '))
+            cost = price * quantity
 
-            cur.execute(f'CREATE TABLE IF NOT EXISTS {emitent} (id INTEGER PRIMARY KEY, ticker TEXT, date TEXT, price INTEGER, quantity INTEGER)')
-            cur.execute(f'INSERT INTO {emitent} (ticker, date, price, quantity) VALUES (?, ?, ?, ?)', (ticker, date, price, quantity))
+            cur.execute(
+                f'CREATE TABLE IF NOT EXISTS {emitent} (id INTEGER PRIMARY KEY, date TEXT, price INTEGER, quantity INTEGER, cost INTEGER)')
+            cur.execute(f'INSERT INTO {emitent} (date, price, quantity, cost) VALUES (?, ?, ?, ?)',
+                        (date, price, quantity, cost))
 
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS portfolio (id INTEGER PRIMARY KEY, emitent TEXT, ticker TEXT, pos_quantity INTEGER, pos_price INTEGER, pos_cost INTEGER, profit)')  # Создание таблицы portfolio
+
+            if not get_match(emitent):
+                cur.execute(
+                    'INSERT INTO portfolio (emitent, ticker, pos_quantity, pos_price, pos_cost, profit) VALUES (?, ?, ?, ?, ?, ?)',
+                    (emitent, ticker, quantity, price, get_pos_cost(emitent),
+                     get_profit(emitent)))
+            cur.execute(
+                'UPDATE portfolio SET pos_quantity = ?, pos_price = ?, pos_cost = ?, profit = ? WHERE emitent = ?',
+                (get_pos_quantity(emitent), get_pos_price(emitent), get_pos_cost(emitent),
+                 get_profit(emitent), emitent))
 
         def get_sell():
             pass
@@ -36,13 +79,6 @@ def get_con():
             print('Wrong enter')
 
         cur = con.cursor()
-        # cur.execute(
-        #     'CREATE TABLE IF NOT EXISTS emmitent (id INTEGER PRIMARY KEY, name TEXT, ticker TEXT, amount INTEGER)')
-
-        # name = input('Введите название эммитента: ')
-        # ticker = input('Введите тикер эммитента: ')
-        # amount = int(input('Введите количество акций: '))
-        # cur.execute('INSERT INTO emmitent (name, ticker, amount) VALUES (?,?,?)', (name, ticker, amount))
 
         # cur.execute('''PRAGMA table_info(emmitent)''')
         # print(cur.fetchall())
