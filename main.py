@@ -3,11 +3,14 @@ import sqlite3 as sq
 
 def get_con():
     with sq.connect('test.db') as con:
-        print('Connection complete...')
+        print('#' * 35, '\nConnection complete...\n#' + '#' * 34)
 
         cur = con.cursor()
 
         def get_buy():
+
+            def get_current_price(emitent):
+                return 1000
 
             def get_match(emitent):
                 cur.execute('SELECT emitent FROM portfolio')
@@ -31,13 +34,27 @@ def get_con():
                 return result
 
             def get_pos_price(emitent):
-                return 1000
+                return get_pos_quantity(emitent) * get_current_price(emitent)
 
             def get_profit(emitent):
-                return get_pos_cost(emitent) - get_pos_price(emitent)
+                return get_pos_price(emitent) - get_pos_cost(emitent)
 
-            emitent = input('Enter emitent: ')
-            ticker = input('Enter ticker: ')
+            get_show()
+
+            answer = input('Добавить имеющийся?\nДа:Y\nНет:N\nОтвет: ')
+
+            if answer.upper() == 'N':
+                emitent = input('Enter emitent: ')
+                ticker = input('Enter ticker: ')
+            elif answer.upper() == 'Y':
+                cur.execute('SELECT emitent FROM portfolio')
+                print('#' * 35, '\nСписок всех эмитентов в портфеле:')
+                for i, j in enumerate(cur.fetchall()):
+                    print(f'{j[0]}: {i + 1}')
+                name = int(input('Выберите добавляемого эмитента: '))
+                cur.execute(f'SELECT emitent FROM portfolio WHERE id = {name}')
+                emitent = cur.fetchall()[0][0]
+
             date = input('Enter date: ')
             price = int(input('Enter price: '))
             quantity = int(input('Enter quantity: '))
@@ -65,20 +82,24 @@ def get_con():
             pass
 
         def get_show():
-            pass
+            cur.execute('SELECT * FROM portfolio')
+            print('#' * 60, "\n", ' ' * 4, 'Emitent Ticker Quant Pos pr Pos cost Profit')
+            for position in cur.fetchall():
+                print(position)
 
-        choice = int(input('Buy: 1\nSell: 2\nShow portfolio: 3\nEnter your chois: '))
+        try:
 
-        if choice == 1:
-            get_buy()
-        elif choice == 2:
-            get_sell()
-        elif choice == 3:
-            get_show()
-        else:
-            print('Wrong enter')
-
-        cur = con.cursor()
+            choice = int(input('Buy: 1\nSell: 2\nShow portfolio: 3\nEnter your chois: '))
+            if choice == 1:
+                get_buy()
+            elif choice == 2:
+                get_sell()
+            elif choice == 3:
+                get_show()
+            else:
+                print('Wrong enter')
+        except ValueError:
+            print('Wrong input')
 
         # cur.execute('''PRAGMA table_info(emmitent)''')
         # print(cur.fetchall())
