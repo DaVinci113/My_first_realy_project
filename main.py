@@ -89,7 +89,7 @@ def get_con():
                 print('#' * 35, '\nList of emitents from your portfolio:')
                 for i, j in enumerate(cur.fetchall()):
                     print(f'{j[0]}: {i + 1}')
-                name = int(input('Выберите продаваемого эмитента: '))
+                name = int(input('Select shares to sell: '))
                 cur.execute(f'SELECT emitent FROM portfolio WHERE rowid = {name}')
                 emitent = cur.fetchall()[0][0]
 
@@ -131,3 +131,4 @@ def get_con():
 
 if __name__ == '__main__':
     get_con()
+
