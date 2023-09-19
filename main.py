@@ -7,6 +7,14 @@ def get_con():
 
         cur = con.cursor()
 
+        def get_pos_quantity(emitent):  # Расчет pos_quantity
+            cur.execute(f'SELECT quantity FROM {emitent}')
+            quantity = cur.fetchall()
+            result = 0
+            for _ in quantity:
+                result += int(_[0])
+            return result
+
         def get_buy():
 
             def get_current_price(emitent):
@@ -25,34 +33,29 @@ def get_con():
                     result += int(_[0])
                 return result
 
-            def get_pos_quantity(emitent):  # Расчет pos_quantity
-                cur.execute(f'SELECT quantity FROM {emitent}')
-                quantity = cur.fetchall()
-                result = 0
-                for _ in quantity:
-                    result += int(_[0])
-                return result
-
             def get_pos_price(emitent):
                 return get_pos_quantity(emitent) * get_current_price(emitent)
 
             def get_profit(emitent):
                 return get_pos_price(emitent) - get_pos_cost(emitent)
 
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS portfolio (emitent TEXT, ticker TEXT, pos_quantity INTEGER, pos_price INTEGER, pos_cost INTEGER, profit)')  # Создание таблицы portfolio
+
             get_show()
 
-            answer = input('Добавить имеющийся?\nДа:Y\nНет:N\nОтвет: ')
+            answer = input('Add shares to existing?\nYes:Y\nNo:N\nAnswer: ')
 
             if answer.upper() == 'N':
                 emitent = input('Enter emitent: ')
                 ticker = input('Enter ticker: ')
             elif answer.upper() == 'Y':
                 cur.execute('SELECT emitent FROM portfolio')
-                print('#' * 35, '\nСписок всех эмитентов в портфеле:')
+                print('#' * 35, '\nList of emitents from yours portfolio:')
                 for i, j in enumerate(cur.fetchall()):
                     print(f'{j[0]}: {i + 1}')
-                name = int(input('Выберите добавляемого эмитента: '))
-                cur.execute(f'SELECT emitent FROM portfolio WHERE id = {name}')
+                name = int(input('Select emitent to add: '))
+                cur.execute(f'SELECT emitent FROM portfolio WHERE rowid = {name}')
                 emitent = cur.fetchall()[0][0]
 
             date = input('Enter date: ')
@@ -61,12 +64,9 @@ def get_con():
             cost = price * quantity
 
             cur.execute(
-                f'CREATE TABLE IF NOT EXISTS {emitent} (id INTEGER PRIMARY KEY, date TEXT, price INTEGER, quantity INTEGER, cost INTEGER)')
+                f'CREATE TABLE IF NOT EXISTS {emitent} (date TEXT, price INTEGER, quantity INTEGER, cost INTEGER)')
             cur.execute(f'INSERT INTO {emitent} (date, price, quantity, cost) VALUES (?, ?, ?, ?)',
                         (date, price, quantity, cost))
-
-            cur.execute(
-                'CREATE TABLE IF NOT EXISTS portfolio (id INTEGER PRIMARY KEY, emitent TEXT, ticker TEXT, pos_quantity INTEGER, pos_price INTEGER, pos_cost INTEGER, profit)')  # Создание таблицы portfolio
 
             if not get_match(emitent):
                 cur.execute(
@@ -79,7 +79,31 @@ def get_con():
                  get_profit(emitent), emitent))
 
         def get_sell():
-            pass
+            answer = input('Are you sure want to sell?\nYes:Y\nNo:N\nAnswer: ')
+
+            if answer.upper() == 'N':
+                emitent = input('Enter emitent: ')
+                ticker = input('Enter ticker: ')
+            elif answer.upper() == 'Y':
+                cur.execute('SELECT emitent FROM portfolio')
+                print('#' * 35, '\nList of emitents from your portfolio:')
+                for i, j in enumerate(cur.fetchall()):
+                    print(f'{j[0]}: {i + 1}')
+                name = int(input('Выберите продаваемого эмитента: '))
+                cur.execute(f'SELECT emitent FROM portfolio WHERE rowid = {name}')
+                emitent = cur.fetchall()[0][0]
+
+            quantity_del = int(input('Number of shares sold: '))
+
+            while quantity_del > 0:
+                cur.execute(f'SELECT quantity FROM {emitent} WHERE rowid = (SELECT MIN(rowid) FROM {emitent})')
+                quantity = cur.fetchall()[0][0]
+                if quantity_del >= quantity:
+                    cur.execute(f'DELETE FROM {emitent} WHERE rowid = (SELECT MIN(rowid) FROM {emitent})')
+                else:
+                    cur.execute(f'UPDATE {emitent} SET quantity = {quantity - quantity_del} WHERE rowid = (SELECT MIN(rowid) FROM {emitent})')
+                quantity_del -= quantity
+            cur.execute('UPDATE portfolio SET pos_quantity=?  WHERE emitent = ?', (get_pos_quantity(emitent), emitent))
 
         def get_show():
             cur.execute('SELECT * FROM portfolio')
