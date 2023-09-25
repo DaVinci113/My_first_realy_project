@@ -1,1 +1,1 @@
-Accounting for purchases and sales of shares.
+Counting of bought and sold shares

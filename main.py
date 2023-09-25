@@ -1,4 +1,8 @@
 import sqlite3 as sq
+import requests
+from fake_useragent import UserAgent
+from config import headers, cookies, params
+import time
 
 
 def get_con():
@@ -7,7 +11,15 @@ def get_con():
 
         cur = con.cursor()
 
-        def get_pos_quantity(emitent):  # Расчет pos_quantity
+        def get_pos_cost(emitent):
+            cur.execute(f'SELECT cost FROM {emitent}')
+            cost = cur.fetchall()
+            result = 0
+            for _ in cost:
+                result += int(_[0])
+            return result
+
+        def get_pos_quantity(emitent):
             cur.execute(f'SELECT quantity FROM {emitent}')
             quantity = cur.fetchall()
             result = 0
@@ -15,29 +27,38 @@ def get_con():
                 result += int(_[0])
             return result
 
+        def get_current_price(emitent):
+
+            cur.execute(f'SELECT ticker FROM portfolio WHERE emitent = \'{emitent}\'')
+            ticker = cur.fetchall()[0][0]
+            useragent = UserAgent().random
+            headers['User-Agent'] = useragent
+            params['code'] = ticker
+            response = requests.get(
+                f'https://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker}.json',
+                params=params,
+                cookies=cookies,
+                headers=headers
+            ).json()
+
+            time.sleep(3)
+
+            for i in response['marketdata']['data']:
+                if i[1] == 'TQBR':
+                    return i[4]
+
+        def get_pos_price(emitent):
+            return get_pos_quantity(emitent) * get_current_price(emitent)
+
+        def get_match(emitent):
+            cur.execute('SELECT emitent FROM portfolio')
+            res = cur.fetchall()
+            return any(emitent in x for x in res)
+
+        def get_profit(emitent):
+            return get_pos_price(emitent) - get_pos_cost(emitent)
+
         def get_buy():
-
-            def get_current_price(emitent):
-                return 1000
-
-            def get_match(emitent):
-                cur.execute('SELECT emitent FROM portfolio')
-                res = cur.fetchall()
-                return any(emitent in x for x in res)
-
-            def get_pos_cost(emitent):  # Расчет pos_cost
-                cur.execute(f'SELECT cost FROM {emitent}')
-                cost = cur.fetchall()
-                result = 0
-                for _ in cost:
-                    result += int(_[0])
-                return result
-
-            def get_pos_price(emitent):
-                return get_pos_quantity(emitent) * get_current_price(emitent)
-
-            def get_profit(emitent):
-                return get_pos_price(emitent) - get_pos_cost(emitent)
 
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS portfolio (emitent TEXT, ticker TEXT, pos_quantity INTEGER, pos_price INTEGER, pos_cost INTEGER, profit)')  # Создание таблицы portfolio
@@ -101,7 +122,8 @@ def get_con():
                 if quantity_del >= quantity:
                     cur.execute(f'DELETE FROM {emitent} WHERE rowid = (SELECT MIN(rowid) FROM {emitent})')
                 else:
-                    cur.execute(f'UPDATE {emitent} SET quantity = {quantity - quantity_del} WHERE rowid = (SELECT MIN(rowid) FROM {emitent})')
+                    cur.execute(
+                        f'UPDATE {emitent} SET quantity = {quantity - quantity_del} WHERE rowid = (SELECT MIN(rowid) FROM {emitent})')
                 quantity_del -= quantity
             cur.execute('UPDATE portfolio SET pos_quantity=?  WHERE emitent = ?', (get_pos_quantity(emitent), emitent))
 
@@ -111,24 +133,37 @@ def get_con():
             for position in cur.fetchall():
                 print(position)
 
+        def emitent_from_id(row_id):
+            cur.execute(f'SELECT emitent FROM portfolio WHERE rowid={row_id}')
+            return cur.fetchall()
+
+        def get_update_data():
+            cur.execute('SELECT emitent FROM portfolio')
+            emitents_list = cur.fetchall()
+            for emitent in emitents_list:
+                emitent = emitent[0]
+                cur_price = get_pos_price(emitent)
+                print(type(emitent))
+                print(emitent)
+
+                cur.execute('UPDATE portfolio SET pos_price=? WHERE emitent=?', (cur_price, emitent))
+
         try:
 
-            choice = int(input('Buy: 1\nSell: 2\nShow portfolio: 3\nEnter your chois: '))
+            choice = int(input('Buy: 1\nSell: 2\nShow portfolio: 3\nUpdate data: 4\nYour choise: '))
             if choice == 1:
                 get_buy()
             elif choice == 2:
                 get_sell()
             elif choice == 3:
                 get_show()
+            elif choice == 4:
+                get_update_data()
             else:
                 print('Wrong enter')
         except ValueError:
             print('Wrong input')
 
-        # cur.execute('''PRAGMA table_info(emmitent)''')
-        # print(cur.fetchall())
-
 
 if __name__ == '__main__':
     get_con()
-
