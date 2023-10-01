@@ -63,21 +63,29 @@ def get_con():
             cur.execute(
                 'CREATE TABLE IF NOT EXISTS portfolio (emitent TEXT, ticker TEXT, pos_quantity INTEGER, pos_price INTEGER, pos_cost INTEGER, profit)')  # Создание таблицы portfolio
 
-            get_show()
+            cur.execute('SELECT * FROM portfolio')
+            scan = cur.fetchall()
+            if scan:
 
-            answer = input('Add shares to existing?\nYes:Y\nNo:N\nAnswer: ')
+                get_show()
 
-            if answer.upper() == 'N':
+                answer = input('Add shares to existing?\nYes:Y\nNo:N\nAnswer: ')
+
+                if answer.upper() == 'N':
+                    emitent = input('Enter emitent: ')
+                    ticker = input('Enter ticker: ')
+                elif answer.upper() == 'Y':
+                    cur.execute('SELECT emitent FROM portfolio')
+                    print('#' * 35, '\nList of emitents from yours portfolio:')
+                    for i, j in enumerate(cur.fetchall()):
+                        print(f'{j[0]}: {i + 1}')
+                    name = int(input('Select emitent to add: '))
+                    cur.execute(f'SELECT emitent FROM portfolio WHERE rowid = {name}')
+                    emitent = cur.fetchall()[0][0]
+
+            else:
                 emitent = input('Enter emitent: ')
                 ticker = input('Enter ticker: ')
-            elif answer.upper() == 'Y':
-                cur.execute('SELECT emitent FROM portfolio')
-                print('#' * 35, '\nList of emitents from yours portfolio:')
-                for i, j in enumerate(cur.fetchall()):
-                    print(f'{j[0]}: {i + 1}')
-                name = int(input('Select emitent to add: '))
-                cur.execute(f'SELECT emitent FROM portfolio WHERE rowid = {name}')
-                emitent = cur.fetchall()[0][0]
 
             date = input('Enter date: ')
             price = int(input('Enter price: '))
@@ -85,15 +93,20 @@ def get_con():
             cost = price * quantity
 
             cur.execute(
-                f'CREATE TABLE IF NOT EXISTS {emitent} (date TEXT, price INTEGER, quantity INTEGER, cost INTEGER)')
+                f'CREATE TABLE IF NOT EXISTS {emitent} (date TEXT, price INTEGER, quantity INTEGER, cost INTEGER)', ())
             cur.execute(f'INSERT INTO {emitent} (date, price, quantity, cost) VALUES (?, ?, ?, ?)',
                         (date, price, quantity, cost))
 
             if not get_match(emitent):
+                cur.execute('INSERT INTO portfolio (emitent, ticker, pos_quantity, pos_price) VALUES (?, ?, ?, ?)',
+                            (emitent, ticker, quantity, price))
+
+                con.commit()
+
                 cur.execute(
-                    'INSERT INTO portfolio (emitent, ticker, pos_quantity, pos_price, pos_cost, profit) VALUES (?, ?, ?, ?, ?, ?)',
-                    (emitent, ticker, quantity, price, get_pos_cost(emitent),
-                     get_profit(emitent)))
+                    'INSERT INTO portfolio (pos_cost, profit) VALUES (?, ?)',
+                    (get_pos_cost(emitent), get_profit(emitent)))
+
             cur.execute(
                 'UPDATE portfolio SET pos_quantity = ?, pos_price = ?, pos_cost = ?, profit = ? WHERE emitent = ?',
                 (get_pos_quantity(emitent), get_pos_price(emitent), get_pos_cost(emitent),
