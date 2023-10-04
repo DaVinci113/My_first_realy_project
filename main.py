@@ -41,7 +41,7 @@ def get_con():
                 headers=headers
             ).json()
 
-            time.sleep(3)
+            time.sleep(1)
 
             for i in response['marketdata']['data']:
                 if i[1] == 'TQBR':
@@ -101,11 +101,6 @@ def get_con():
                 cur.execute('INSERT INTO portfolio (emitent, ticker, pos_quantity, pos_price) VALUES (?, ?, ?, ?)',
                             (emitent, ticker, quantity, price))
 
-                con.commit()
-
-                cur.execute(
-                    'INSERT INTO portfolio (pos_cost, profit) VALUES (?, ?)',
-                    (get_pos_cost(emitent), get_profit(emitent)))
 
             cur.execute(
                 'UPDATE portfolio SET pos_quantity = ?, pos_price = ?, pos_cost = ?, profit = ? WHERE emitent = ?',
@@ -146,20 +141,23 @@ def get_con():
             for position in cur.fetchall():
                 print(position)
 
-        def emitent_from_id(row_id):
-            cur.execute(f'SELECT emitent FROM portfolio WHERE rowid={row_id}')
-            return cur.fetchall()
-
         def get_update_data():
             cur.execute('SELECT emitent FROM portfolio')
             emitents_list = cur.fetchall()
             for emitent in emitents_list:
                 emitent = emitent[0]
                 cur_price = get_pos_price(emitent)
-                print(type(emitent))
-                print(emitent)
+                print(emitent, ' - Updated')
 
                 cur.execute('UPDATE portfolio SET pos_price=? WHERE emitent=?', (cur_price, emitent))
+
+            delete_zero_quantity()
+
+        def delete_zero_quantity():
+            cur.execute('SELECT emitent FROM portfolio WHERE pos_quantity = 0')
+            for i in cur.fetchall()[0]:
+                cur.execute(f'DROP TABLE {i}')
+            cur.execute('DELETE FROM portfolio WHERE pos_quantity=0')
 
         try:
 
